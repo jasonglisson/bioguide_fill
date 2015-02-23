@@ -1,0 +1,124 @@
+<?php 
+
+function bioguide_menu(){
+	$items['bioguide-processor'] = array(
+			'page callback' => 'bioguide_processor',
+			'access arguments' => array('access content'),
+			'title' => 'Bioguide Processor',
+			'type' => MENU_NORMAL_ITEM
+	    );
+	    return $items;
+};
+
+function bioguide_processor() {
+	
+/*
+  $node_types = array('congressperson'); // add the machine names of node types you want to bulk delete
+
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+    ->propertyCondition('type', $node_types, 'IN');
+  $result = $query->execute();
+  foreach($result['node'] as $node){
+    node_delete($node->nid);
+  }	
+*/
+	
+	$query = new EntityFieldQuery();
+
+	$query->entityCondition('entity_type', 'node')
+	->entityCondition('bundle', 'congressperson')
+/* 	->entityCondition('entity_id', array(11701,11702,11703), 'IN') */
+/* 	->fieldCondition('field_bioguide_id', 'value', '', '<>') */
+	->propertyCondition('status', 1);
+	
+	$result = $query->execute();
+	
+	if (!empty($result['node'])) {
+		$nids = array_keys($result['node']);
+	
+		foreach ($nids as $nid) {
+			$node = node_load($nid, NULL, TRUE);
+		// do something awesome
+
+
+			$cong_firstname = $node->field_first_name[$node->language][0]['value'];
+			$cong_lastname = $node->field_last_name[$node->language][0]['value'];
+			$cong_bioguide = $node->field_bioguide_id[$node->language][0]['value'];
+			$cong_district = $node->field_district[$node->language][0]['value'];
+			$cong_title = $node->field_chamber[$node->language][0]['value'];
+			$cong_state = $node->field_state[$node->language][0]['value'];			
+		
+			$apikey = variable_get('find_congressperson');
+			
+			// construct the query with our apikey and the query we want to make
+/* 			$endpoint = 'https://congress.api.sunlightfoundation.com/legislators?first_name=' . $cong_firstname . '&last_name='. $cong_lastname .'&apikey=' . $apikey; */
+/* 			$endpoint = 'https://congress.api.sunlightfoundation.com/legislators?last_name='. $cong_lastname .'&state='. $cong_state .' &apikey=' . $apikey; */
+/*          $endpoint = 'https://congress.api.sunlightfoundation.com/legislators?last_name='. $cong_lastname .'&state=' . $cong_state . '&apikey=' . $apikey; */
+            $endpoint = 'https://congress.api.sunlightfoundation.com/legislators??bioguide_id=' . $cong_bioguide . '&apikey=' . $apikey;
+/* 			$endpoint = 'https://www.govtrack.us/api/v2/person?lastname='. $cong_lastname .'&q=' .$cong_firstname; */
+			$endpoint = 'https://www.govtrack.us/api/v2/person?lastname='. $cong_lastname;
+			
+/* 			echo $endpoint; */
+		
+			// setup curl to make a call to the endpoint
+			$session = curl_init($endpoint);
+			
+			// indicates that we want the response back
+			curl_setopt($session, CURLOPT_RETURNTRANSFER, true);
+			
+			// exec curl and get the data back
+			$data = curl_exec($session);
+			
+			// remember to close the curl session once we are finished retrieveing the data
+			curl_close($session);
+			
+			// decode the json data to make it easier to parse the php
+/* 			$search_results = json_decode($data); */
+		
+			$data = utf8_encode($data);
+			
+			// decode the json data to make it easier to parse the php
+			$search_results = json_decode($data, true);
+			
+			$bioguide_id = $search_results['objects'][0]['bioguideid'];
+		
+/*
+			$congressperson = $search_results->results;
+		
+			$bioguide = $congressperson[0]->bioguide_id;
+			$district = $congressperson[0]->district;
+			$state = $congressperson[0]->state;
+			$party = $congressperson[0]->party;
+			$firstname = $congressperson[0]->first_name;		
+		    $chambertitle = $congressperson[0]->title;	
+*/		
+						
+/* 			unset($node->field_first_name_compare[$node->language][0]); */
+/* 			unset($node->field_bioguide_id[$node->language][0]); */
+/*			unset($node->field_district[$node->language][0]);
+			unset($node->field_state[$node->language][0]);
+			unset($node->field_chamber[$node->language][0]);	
+			unset($node->field_party[$node->language][0]);	
+*/	
+/* 			$node->field_bioguide_id[$node->language][0]['value'] = $bioguide_id; */
+/*
+			$node->field_district[$node->language][0]['value'] .= $district;	
+			$node->field_state[$node->language][0]['value'] = $state;	
+*/
+/* 			$node->field_party[$node->language][0]['value'] = $party;	 */		
+/* 			$node->field_chamber[$node->language][0]['value'] = $chambertitle;	 */
+/* 			$node->field_first_name_compare[$node->language][0]['value'] = 0; */
+			
+			// Make this change a new revision
+			$node->revision = 1;
+			$node->log = 'This node was programmatically updated at ' . date('c');
+			
+/* 			drupal_set_title(t($cong_firstname . ' ' . $cong_lastname)); */
+			
+			node_save($node);
+	
+			}
+	}
+}
+
